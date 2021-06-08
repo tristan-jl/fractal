@@ -12,30 +12,29 @@ const (
 	imgWidth               = 2560
 	imgHeight              = 1440
 	samplePerPixel         = 1
-	maxIter                = 30
-	minRe          float64 = -2
-	maxRe          float64 = 1
-	minIm          float64 = -0.8
+	maxIter                = 100
+	minRe          float64 = -2.5
+	minIm          float64 = -1.2
+	maxIm          float64 = 1.2
 )
 
 const (
-	maxIm    = minIm + (maxRe-minRe)*imgHeight/imgWidth
+	maxRe    = minRe + (maxIm-minIm)*imgWidth/imgHeight
 	reFactor = (maxRe - minRe) / (imgWidth - 1)
 	imFactor = (maxIm - minIm) / (imgHeight - 1)
 )
 
-func pixelColour(cRe, cIm float64) int {
-	zRe := cRe
-	zIm := cIm
+func escapeTime(cRe, cIm float64) int {
+	var x, y, x2, y2 float64
 
 	for i := 0; i < maxIter; i++ {
-		zRe2, zReIm, zIm2 := zRe*zRe, zRe*zIm, zIm*zIm
-
-		if zRe2+zIm2 > 4 {
+		if x2+y2 > 4 {
 			return i
 		}
-		zRe = zRe2 - zIm2 + cRe
-		zIm = 2*zReIm + cIm
+		y = 2*x*y + cIm
+		x = x2 - y2 + cRe
+		x2 = x * x
+		y2 = y * y
 	}
 
 	return maxIter
@@ -50,12 +49,13 @@ func main() {
 		for i := 0; i < imgWidth; i++ {
 			cRe := minRe + float64(i)*reFactor
 
-			pixel := pixelColour(cRe, cIm)
+			iter := escapeTime(cRe, cIm)
 
-			if pixel >= maxIter {
+			if iter >= maxIter {
 				img.SetNRGBA(i, j, color.NRGBA{0, 0, 0, 255})
 			} else {
-				img.SetNRGBA(i, j, color.NRGBA{255, 255, 255, 255})
+				r, g, b := hslToRgb(float64(iter)/float64(maxIter), 1, 0.5)
+				img.SetNRGBA(i, j, color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255})
 			}
 
 		}
