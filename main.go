@@ -52,6 +52,17 @@ func fractionalEscapeValue(cRe, cIm float64) float64 {
 	return 5. + float64(n) - logHalfBase - math.Log(math.Log(z))*logBase
 }
 
+func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
+	value := fractionalEscapeValue(cRe, cIm)
+
+	if value < maxIter {
+		r, g, b := hslToRgb(value/float64(maxIter), 1, 0.5)
+		img.SetNRGBA(i, j, color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255})
+	} else {
+		img.SetNRGBA(i, j, color.NRGBA{0, 0, 0, 255})
+	}
+}
+
 func main() {
 	fmt.Println("Starting")
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
@@ -61,14 +72,7 @@ func main() {
 		for i := 0; i < imgWidth; i++ {
 			cRe := minRe + float64(i)*rePixelSize
 
-			value := fractionalEscapeValue(cRe, cIm)
-
-			if value < maxIter {
-				r, g, b := hslToRgb(value/float64(maxIter), 1, 0.5)
-				img.SetNRGBA(i, j, color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255})
-			} else {
-				img.SetNRGBA(i, j, color.NRGBA{0, 0, 0, 255})
-			}
+			go setPixel(img, i, j, cRe, cIm)
 		}
 	}
 
