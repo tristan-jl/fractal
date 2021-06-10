@@ -12,7 +12,7 @@ import (
 const (
 	imgWidth               = 2560
 	imgHeight              = 1440
-	samplePerPixel         = 1
+	samplePerPixel         = 100
 	minRe          float64 = -2.5
 	minIm          float64 = -1.2
 	maxIm          float64 = 1.2
@@ -53,7 +53,17 @@ func fractionalEscapeValue(cRe, cIm float64) float64 {
 }
 
 func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
-	value := fractionalEscapeValue(cRe, cIm)
+	// TODO use goroutine here
+	var value float64
+
+	cReRands := randFloat(cRe, cRe+rePixelSize, samplePerPixel)
+	cImRands := randFloat(cIm, cIm+imPixelSize, samplePerPixel)
+
+	for i := 0; i < samplePerPixel; i++ {
+		value += fractionalEscapeValue(cReRands[i], cImRands[i])
+	}
+
+	value = value / samplePerPixel
 
 	if value < maxIter {
 		r, g, b := hslToRgb(value/float64(maxIter), 1, 0.5)
@@ -74,6 +84,7 @@ func main() {
 
 			go setPixel(img, i, j, cRe, cIm)
 		}
+		fmt.Printf("\r%d/%d", j+1, imgHeight) // TODO make better progress bar
 	}
 
 	f, err := os.Create("result.png")
