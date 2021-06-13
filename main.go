@@ -7,57 +7,45 @@ import (
 	"image/png"
 	"math"
 	"os"
+	"time"
 )
 
 const (
 	imgWidth               = 2560
 	imgHeight              = 1440
-	samplePerPixel         = 100
-	minRe          float64 = -2.5
-	minIm          float64 = -1.2
-	maxIm          float64 = 1.2
-	maxIter                = 25
-	escapeRadius   float64 = 2
+	samplePerPixel         = 10
+	centreRe       float64 = -0.5
+	centreIm       float64 = 0.
+	h              float64 = 2.4
+	maxIter                = 25000
+	escapeRadius   float64 = 1 << 8
+	log2                   = 0.6931471805599453
 )
 
 const (
-	maxRe         = minRe + (maxIm-minIm)*imgWidth/imgHeight
-	rePixelSize   = (maxRe - minRe) / (imgWidth - 1)
-	imPixelSize   = (maxIm - minIm) / (imgHeight - 1)
+	pixelSize     = h / imgHeight // square pixels
 	escapeRadius2 = escapeRadius * escapeRadius
 )
 
-func escapeValue(cRe, cIm float64) (float64, int) {
-	x, y, x2, y2 := 0., 0., 0., 0.
+func fractionalEscapeValue(cRe, cIm float64) float64 {
+	x, y, xTemp := 0., 0., 0.
 
 	for i := 0; i < maxIter; i++ {
-		if x2+y2 > escapeRadius2 {
-			return x2 + y2, i
+		if x*x+y*y > escapeRadius2 {
+			return float64(i) + 1. - math.Log(math.Log(x*x+y*y)/log2)/log2
 		}
+		xTemp = x*x - y*y + cRe
 		y = 2*x*y + cIm
-		x = x2 - y2 + cRe
-		x2 = x * x
-		y2 = y * y
+		x = xTemp
 	}
-
-	return x2 + y2, maxIter
-}
-
-func fractionalEscapeValue(cRe, cIm float64) float64 {
-	z, n := escapeValue(cRe, cIm)
-
-	logBase := 1. / math.Log(2.)
-	logHalfBase := math.Log(0.5) * logBase
-
-	return 5. + float64(n) - logHalfBase - math.Log(math.Log(z))*logBase
+	return float64(maxIter)
 }
 
 func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
-	// TODO use goroutine here
 	var value float64
 
-	cReRands := randFloat(cRe, cRe+rePixelSize, samplePerPixel)
-	cImRands := randFloat(cIm, cIm+imPixelSize, samplePerPixel)
+	cReRands := randFloat(cRe, cRe+pixelSize, samplePerPixel)
+	cImRands := randFloat(cIm, cIm+pixelSize, samplePerPixel)
 
 	for i := 0; i < samplePerPixel; i++ {
 		value += fractionalEscapeValue(cReRands[i], cImRands[i])
@@ -66,7 +54,7 @@ func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
 	value = value / samplePerPixel
 
 	if value < maxIter {
-		r, g, b := hslToRgb(value/float64(maxIter), 1, 0.5)
+		r, g, b := hslToRgb(value/400., 1, 0.5)
 		img.SetNRGBA(i, j, color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255})
 	} else {
 		img.SetNRGBA(i, j, color.NRGBA{0, 0, 0, 255})
@@ -74,18 +62,20 @@ func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
 }
 
 func main() {
+	start := time.Now()
 	fmt.Println("Starting")
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
 	for j := 0; j < imgHeight; j++ {
-		cIm := maxIm - float64(j)*imPixelSize
+		cIm := centreIm + h/2 - float64(j)*pixelSize
 		for i := 0; i < imgWidth; i++ {
-			cRe := minRe + float64(i)*rePixelSize
+			cRe := centreRe - h/2*(float64(imgWidth)/float64(imgHeight)) + float64(i)*pixelSize
 
 			go setPixel(img, i, j, cRe, cIm)
 		}
 		fmt.Printf("\r%d/%d", j+1, imgHeight) // TODO make better progress bar
 	}
+	fmt.Println()
 
 	f, err := os.Create("result.png")
 	if err != nil {
@@ -95,5 +85,6 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Done!")
+	elapsed := time.Since(start)
+	fmt.Printf("Done in %s\n", elapsed)
 }
