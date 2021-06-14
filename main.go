@@ -19,43 +19,52 @@ const (
 	h              float64 = 2.4
 	maxIter                = 25000
 	escapeRadius   float64 = 1 << 8
-	log2                   = 0.6931471805599453
+)
+
+const (
+	gradientScale = 128
+	numColours    = 2048
 )
 
 const (
 	pixelSize     = h / imgHeight // square pixels
 	escapeRadius2 = escapeRadius * escapeRadius
+	log2          = 0.6931471805599453
 )
 
-func fractionalEscapeValue(cRe, cIm float64) float64 {
+func fractionalEscapeValue(cRe, cIm float64) (float64, int) {
 	x, y, xTemp := 0., 0., 0.
 
 	for i := 0; i < maxIter; i++ {
 		if x*x+y*y > escapeRadius2 {
-			return float64(i) + 1. - math.Log(math.Log(x*x+y*y)/log2)/log2
+			return float64(i) + 10. - math.Log(math.Log(x*x+y*y)/log2)/log2, i
 		}
 		xTemp = x*x - y*y + cRe
 		y = 2*x*y + cIm
 		x = xTemp
 	}
-	return float64(maxIter)
+	return float64(maxIter), maxIter
 }
 
 func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
-	var value float64
+	var value, valueTemp, iterFloat float64
+	var iter, iterTemp int
 
 	cReRands := randFloat(cRe, cRe+pixelSize, samplePerPixel)
 	cImRands := randFloat(cIm, cIm+pixelSize, samplePerPixel)
 
 	for i := 0; i < samplePerPixel; i++ {
-		value += fractionalEscapeValue(cReRands[i], cImRands[i])
+		valueTemp, iterTemp = fractionalEscapeValue(cReRands[i], cImRands[i])
+		value += valueTemp
+		iter += iterTemp
 	}
 
-	value = value / samplePerPixel
+	value /= samplePerPixel
+	iterFloat = float64(iter) / samplePerPixel
 
 	if value < maxIter {
-		r, g, b := hslToRgb(value/400., 1, 0.5)
-		img.SetNRGBA(i, j, color.NRGBA{uint8(r * 255), uint8(g * 255), uint8(b * 255), 255})
+		colourI := int(math.Sqrt(iterFloat)*gradientScale) % numColours
+		img.SetNRGBA(i, j, gradient(float64(colourI)/numColours))
 	} else {
 		img.SetNRGBA(i, j, color.NRGBA{0, 0, 0, 255})
 	}
