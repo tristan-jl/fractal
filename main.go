@@ -13,7 +13,7 @@ import (
 const (
 	imgWidth               = 2560
 	imgHeight              = 1440
-	samplePerPixel         = 10
+	samplePerPixel         = 100
 	centreRe       float64 = -0.5
 	centreIm       float64 = 0.
 	h              float64 = 2.4
