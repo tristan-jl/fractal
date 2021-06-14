@@ -46,7 +46,7 @@ func fractionalEscapeValue(cRe, cIm float64) (float64, int) {
 	return float64(maxIter), maxIter
 }
 
-func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
+func setPixel(img *image.NRGBA, colourGradient *[numColours]color.NRGBA, i, j int, cRe, cIm float64) {
 	var value, valueTemp, iterFloat float64
 	var iter, iterTemp int
 
@@ -63,8 +63,11 @@ func setPixel(img *image.NRGBA, i, j int, cRe, cIm float64) {
 	iterFloat = float64(iter) / samplePerPixel
 
 	if value < maxIter {
-		colourI := int(math.Sqrt(iterFloat)*gradientScale) % numColours
-		img.SetNRGBA(i, j, gradient(float64(colourI)/numColours))
+		colourI := math.Mod((math.Sqrt(iterFloat) * gradientScale), numColours)
+
+		colour1 := colourGradient[int(colourI)]
+		colour2 := colourGradient[(int(colourI)+1)%numColours]
+		img.SetNRGBA(i, j, linearInterpolate(colour1, colour2, math.Mod(colourI, 1)))
 	} else {
 		img.SetNRGBA(i, j, color.NRGBA{0, 0, 0, 255})
 	}
@@ -75,12 +78,17 @@ func main() {
 	fmt.Println("Starting")
 	img := image.NewNRGBA(image.Rect(0, 0, imgWidth, imgHeight))
 
+	var colourGradient [numColours]color.NRGBA
+	for i := 0; i < numColours; i++ {
+		colourGradient[i] = gradient(float64(i) / numColours)
+	}
+
 	for j := 0; j < imgHeight; j++ {
 		cIm := centreIm + h/2 - float64(j)*pixelSize
 		for i := 0; i < imgWidth; i++ {
 			cRe := centreRe - h/2*(float64(imgWidth)/float64(imgHeight)) + float64(i)*pixelSize
 
-			go setPixel(img, i, j, cRe, cIm)
+			go setPixel(img, &colourGradient, i, j, cRe, cIm)
 		}
 		fmt.Printf("\r%d/%d", j+1, imgHeight) // TODO make better progress bar
 	}

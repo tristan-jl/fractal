@@ -88,6 +88,19 @@ func createInterpolant(xs, ys []float64) func(float64) float64 {
 	}
 }
 
+func weightedAverage(x, y uint8, weight float64) uint8 {
+	return uint8(weight*float64(y-x)) + x
+}
+
+func linearInterpolate(c1, c2 color.NRGBA, weight float64) color.NRGBA {
+	return color.NRGBA{
+		weightedAverage(c1.R, c2.R, weight),
+		weightedAverage(c1.G, c2.G, weight),
+		weightedAverage(c1.B, c2.B, weight),
+		weightedAverage(c1.A, c2.A, weight),
+	}
+}
+
 func gradient(x float64) color.NRGBA {
 	positions := []float64{0., 0.16, 0.42, 0.6425, 0.8575}
 
